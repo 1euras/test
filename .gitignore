@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+
+# generated at runtime, site-specific
+mapper_config.json
+mapper_state.json
+islands.json
