@@ -28,6 +28,8 @@ import threading
 import time
 import urllib.parse
 
+from helvarnet import HelvarClient, address_sort_key, parse_reply
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(HERE, "mapper_config.json")
 STATE_PATH = os.path.join(HERE, "mapper_state.json")
@@ -77,124 +79,17 @@ CONFIG = load_config()
 # HelvarNet transport
 # --------------------------------------------------------------------------
 
-class HelvarClient:
-    """One persistent TCP connection to the router, serialised by a lock.
-
-    Routers accept a limited number of concurrent connections, so we keep a
-    single socket open and reconnect on failure rather than dialling per
-    command.
-    """
-
-    def __init__(self, ip, port, command_timeout):
-        self.ip = ip
-        self.port = port
-        self.command_timeout = command_timeout
-        self._sock = None
-        self._buf = b""
-        self._lock = threading.Lock()
-        self.last_error = None
-
-    def _connect(self):
-        self._close()
-        sock = socket.create_connection((self.ip, self.port), timeout=3.0)
-        sock.settimeout(self.command_timeout)
-        self._sock = sock
-        self._buf = b""
-
-    def _close(self):
-        if self._sock is not None:
-            try:
-                self._sock.close()
-            except OSError:
-                pass
-        self._sock = None
-        self._buf = b""
-
-    def _read_reply(self, timeout):
-        """Read until a terminated message arrives, skipping router pushes.
-
-        Replies end with '#'. A router with push messages enabled also sends
-        unsolicited '>' commands down the same socket; those are not answers
-        to anything we asked, so they get discarded.
-        """
-        deadline = time.monotonic() + timeout
-        while True:
-            idx = self._buf.find(b"#")
-            if idx != -1:
-                msg = self._buf[: idx + 1]
-                self._buf = self._buf[idx + 1:]
-                text = msg.decode("ascii", "replace").strip()
-                if text.startswith(">"):
-                    continue  # unsolicited push, not our reply
-                return text
-
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                return None
-            self._sock.settimeout(remaining)
-            try:
-                chunk = self._sock.recv(4096)
-            except socket.timeout:
-                return None
-            if not chunk:
-                raise ConnectionError("router closed the connection")
-            self._buf += chunk
-
-    def send(self, command, expect_reply=False, timeout=None):
-        """Send a raw HelvarNet string. Returns the reply text, or None."""
-        if timeout is None:
-            timeout = self.command_timeout
-        if not command.endswith("#"):
-            command += "#"
-
-        with self._lock:
-            for attempt in (1, 2):
-                try:
-                    if self._sock is None:
-                        self._connect()
-                    self._sock.sendall(command.encode("ascii"))
-                    if not expect_reply:
-                        self.last_error = None
-                        return None
-                    reply = self._read_reply(timeout)
-                    self.last_error = None
-                    return reply
-                except (OSError, ConnectionError) as exc:
-                    self._close()
-                    if attempt == 2:
-                        self.last_error = f"{type(exc).__name__}: {exc}"
-                        raise
-        return None
-
-    # -- convenience wrappers ---------------------------------------------
-
-    def direct_level_device(self, address, level, fade=0):
-        cmd = ">V:1,C:%d,L:%d,F:%d,%s" % (
-            CONFIG["cmd_direct_level_device"], level, fade, address)
-        self.send(cmd)
-
-    def query_device(self, address, command_number, timeout):
-        cmd = ">V:1,C:%d,%s" % (command_number, address)
-        return self.send(cmd, expect_reply=True, timeout=timeout)
-
-
 CLIENT = HelvarClient(
-    CONFIG["router_ip"], CONFIG["router_port"], CONFIG["command_timeout"])
-
-
-def parse_reply(reply):
-    """Split a HelvarNet reply into (ok, value).
-
-    '?' prefixes an answer, '!' an error. The payload follows '='.
-    """
-    if not reply:
-        return False, None
-    ok = reply.startswith("?")
-    value = None
-    if "=" in reply:
-        value = reply.split("=", 1)[1].rstrip("#").strip()
-    return ok, value
-
+    CONFIG["router_ip"],
+    CONFIG["router_port"],
+    CONFIG["command_timeout"],
+    commands={
+        "direct_level_device": CONFIG["cmd_direct_level_device"],
+        "direct_level_group": CONFIG["cmd_direct_level_group"],
+        "query_device_type": CONFIG["cmd_query_device_type"],
+        "query_device_description": CONFIG["cmd_query_device_description"],
+    },
+)
 
 # --------------------------------------------------------------------------
 # Persistent state
@@ -363,13 +258,6 @@ def scan_worker():
         with STATE_LOCK:
             STATE["scan"]["running"] = False
             STATE["scan"]["error"] = f"{type(exc).__name__}: {exc}"
-
-
-def address_sort_key(address):
-    try:
-        return tuple(int(part) for part in address.lstrip("@").split("."))
-    except ValueError:
-        return (0, 0, 0, 0)
 
 
 # --------------------------------------------------------------------------

@@ -5,3 +5,6 @@ __pycache__/
 mapper_config.json
 mapper_state.json
 islands.json
+controller_config.json
+controller_state.json
+photos/
