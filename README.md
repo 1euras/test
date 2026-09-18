@@ -48,9 +48,11 @@ Designer work is required**. The mapping is a JSON file you can edit.
   without tapping thirty-eight others off.
 - **Shared state.** Every tablet polls the same server, so two tablets agree.
   State survives a restart.
-- **Honest about problems.** An island with nothing mapped to it is greyed out
-  and says so; if the router stops answering, a banner says taps are being
-  recorded but the lights aren't moving.
+- **Islands without lighting are fine.** Not every display island has
+  controllable luminaires. Those tiles look like any other and simply do
+  nothing when tapped — no warning, no badge.
+- **Real faults still surface.** If the router stops answering, a banner says
+  taps are being recorded but the lights aren't moving.
 
 ### Photos
 
@@ -77,6 +79,41 @@ rarely.
 | `title` | Shown in the header. |
 | `http_port` | Default 8080. |
 
+### Branding
+
+Every colour the page uses lives in the `theme` block of
+`controller_config.json` — nothing is hard-coded in the stylesheet. Change it
+there and restart.
+
+```json
+"theme": {
+  "bg":          "#101216",
+  "panel":       "#1a1d23",
+  "line":        "#2c313a",
+  "text":        "#eceef1",
+  "muted":       "#8d95a3",
+  "accent":      "#ffc24d",
+  "accent_ink":  "#1d1503",
+  "accent_soft": "rgba(255, 194, 77, .28)",
+  "danger":      "#ff5d55",
+  "font":        "system-ui, -apple-system, sans-serif",
+  "radius":      "14px",
+
+  "tile_bg":     "#1d2026",
+  "photo_text":  "#ffffff",
+  "photo_muted": "rgba(255, 255, 255, .22)"
+}
+```
+
+`accent` is the lit-island colour: the ring around a lit tile, the glow
+(`accent_soft`, translucent), and the active Solo button. `accent_ink` is the
+text drawn on top of the accent, so it needs to contrast with it.
+
+The last three are deliberately separate from the page palette. A tile is a
+photo surface, not page chrome — it stays dark when unlit whatever the brand
+colours are, and its name sits on a dark scrim over the image. If they
+followed `text` and `panel`, a light brand theme would put black text on a
+black tile.
 `islands.json` wins over `controller_config.json` for the router address, so
 the two files can't silently disagree about which router is being driven.
 

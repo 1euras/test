@@ -52,6 +52,30 @@ DEFAULT_CONFIG = {
     "photos_dir": "photos",
     "title": "Showroom",
 
+    "_theme_comment": (
+        "Brand palette. Every colour the page uses is here - nothing is "
+        "hard-coded in the stylesheet. 'accent' is the lit-island colour, "
+        "'accent_ink' the text drawn on top of it, 'accent_soft' the glow "
+        "around a lit tile (use a translucent rgba)."
+    ),
+    "theme": {
+        "bg": "#101216",
+        "panel": "#1a1d23",
+        "line": "#2c313a",
+        "text": "#eceef1",
+        "muted": "#8d95a3",
+        "accent": "#ffc24d",
+        "accent_ink": "#1d1503",
+        "accent_soft": "rgba(255, 194, 77, .28)",
+        "danger": "#ff5d55",
+        "font": ('system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'),
+        "radius": "14px",
+
+        "tile_bg": "#1d2026",
+        "photo_text": "#ffffff",
+        "photo_muted": "rgba(255, 255, 255, .22)",
+    },
+
     "_comment": (
         "Command numbers follow the HelvarNet overview document. If tapping a "
         "tile does nothing, check these against the copy for your firmware "
@@ -82,7 +106,11 @@ def load_json(path, default, label):
 
 
 CONFIG = dict(DEFAULT_CONFIG)
-CONFIG.update(load_json(CONFIG_PATH, DEFAULT_CONFIG, "set router_ip, then restart"))
+_user_config = load_json(CONFIG_PATH, DEFAULT_CONFIG, "set router_ip, then restart")
+_user_theme = dict(DEFAULT_CONFIG["theme"])
+_user_theme.update(_user_config.get("theme") or {})
+CONFIG.update(_user_config)
+CONFIG["theme"] = _user_theme
 
 ISLANDS_DOC = load_json(
     ISLANDS_PATH, SAMPLE_ISLANDS,
@@ -196,7 +224,7 @@ def build_state_payload():
         ],
         "on_count": len(on),
         "total": len(ISLANDS),
-        "unmapped": [i.name for i in ISLANDS if i.target_count == 0],
+        "switchable": sum(1 for i in ISLANDS if i.target_count > 0),
         "last_error": CLIENT.last_error,
     }
 
@@ -213,8 +241,9 @@ def api_toggle(body):
     if island is None:
         return {"ok": False, "error": f"no island {island_id}"}
     if island.target_count == 0:
-        return {"ok": False,
-                "error": f"{island.name} has no luminaires mapped to it"}
+        # Not every island in the showroom has controllable lighting. Such a
+        # tile is a display, not a fault - tapping it simply does nothing.
+        return {"ok": True, "on": False}
 
     fade = CONFIG["fade"]
     with STATE_LOCK:
@@ -389,21 +418,27 @@ PAGE = r"""<!doctype html>
 <meta name="mobile-web-app-capable" content="yes">
 <title>Showroom</title>
 <style>
+  /* every colour comes from the "theme" block in controller_config.json */
   :root {
-    --bg: #101216;
-    --panel: #1a1d23;
-    --line: #2c313a;
-    --text: #eceef1;
-    --muted: #8d95a3;
-    --warm: #ffc24d;
-    --warm-soft: rgba(255, 194, 77, .28);
-    --danger: #ff5d55;
+    --bg: __BG__;
+    --panel: __PANEL__;
+    --line: __LINE__;
+    --text: __TEXT__;
+    --muted: __MUTED__;
+    --accent: __ACCENT__;
+    --accent-ink: __ACCENT_INK__;
+    --accent-soft: __ACCENT_SOFT__;
+    --danger: __DANGER__;
+    --radius: __RADIUS__;
+    --tile-bg: __TILE_BG__;
+    --photo-text: __PHOTO_TEXT__;
+    --photo-muted: __PHOTO_MUTED__;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { overscroll-behavior: none; }
   body {
     margin: 0; background: var(--bg); color: var(--text);
-    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font: 16px/1.4 __FONT__;
     padding: 0 16px 32px; user-select: none;
   }
 
@@ -418,22 +453,22 @@ PAGE = r"""<!doctype html>
     font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
-  .count b { color: var(--warm); font-weight: 650; }
+  .count b { color: var(--accent); font-weight: 650; }
   button {
     font: inherit; font-size: 15px; color: var(--text); background: var(--panel);
     border: 1px solid var(--line); border-radius: 10px;
     padding: 11px 16px; min-height: 46px; cursor: pointer;
   }
   button:active { transform: translateY(1px); }
-  button.on { background: var(--warm); color: #1d1503; border-color: var(--warm); font-weight: 650; }
+  button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 650; }
 
   .grid {
     display: grid; gap: 12px;
     grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
   }
   .tile {
-    position: relative; aspect-ratio: 4 / 3; border-radius: 14px;
-    overflow: hidden; cursor: pointer; background: var(--panel);
+    position: relative; aspect-ratio: 4 / 3; border-radius: var(--radius);
+    overflow: hidden; cursor: pointer; background: var(--tile-bg);
     border: 1px solid var(--line);
     transition: box-shadow .22s, border-color .22s, transform .1s;
   }
@@ -449,25 +484,19 @@ PAGE = r"""<!doctype html>
   .tile .ph {
     position: absolute; inset: 0; display: flex;
     align-items: center; justify-content: center;
-    font-size: 40px; font-weight: 700; color: #3a404b;
-    background: linear-gradient(150deg, #22262e, #171a20);
+    font-size: 40px; font-weight: 700; color: var(--photo-muted);
+    background: var(--tile-bg);
     transition: color .3s ease;
   }
   .tile .label {
     position: absolute; left: 0; right: 0; bottom: 0; padding: 26px 12px 10px;
-    font-size: 14px; font-weight: 600; line-height: 1.25;
+    font-size: 14px; font-weight: 600; line-height: 1.25; color: var(--photo-text);
     background: linear-gradient(transparent, rgba(8,9,12,.88));
     text-shadow: 0 1px 3px rgba(0,0,0,.7);
   }
-  .tile.lit { border-color: var(--warm); box-shadow: 0 0 0 1px var(--warm), 0 6px 26px var(--warm-soft); }
+  .tile.lit { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 6px 26px var(--accent-soft); }
   .tile.lit img { filter: none; }
-  .tile.lit .ph { color: var(--warm); }
-  .tile.dead { opacity: .4; }
-  .tile .badge {
-    position: absolute; top: 8px; right: 8px; font-size: 11px;
-    background: rgba(8,9,12,.8); border: 1px solid var(--line);
-    padding: 3px 7px; border-radius: 999px; color: var(--muted);
-  }
+  .tile.lit .ph { color: var(--accent); }
 
   .banner {
     display: none; margin: 0 0 12px; padding: 11px 14px; border-radius: 10px;
@@ -545,11 +574,6 @@ function render() {
     banner.className = 'banner show';
     banner.textContent = 'Router ' + S.router_ip + ' is not responding. ' +
                          'Taps are being recorded but the lights will not move.';
-  } else if (S.unmapped.length) {
-    banner.className = 'banner show';
-    banner.textContent = S.unmapped.length + ' island(s) have no luminaires ' +
-      'mapped yet: ' + S.unmapped.slice(0, 4).join(', ') +
-      (S.unmapped.length > 4 ? '...' : '') + '. Run the mapper.';
   } else {
     banner.className = 'banner';
   }
@@ -572,7 +596,6 @@ function render() {
       } else {
         inner += '<div class="ph">' + isl.id + '</div>';
       }
-      if (!isl.targets) inner += '<div class="badge">not mapped</div>';
       inner += '<div class="label"></div>';
       t.innerHTML = inner;
       t.querySelector('.label').textContent = isl.name;
@@ -588,16 +611,12 @@ function render() {
     // an in-flight tap wins until the server confirms, so the tile never
     // flickers back to its old state while the request is on the wire
     var lit = (isl.id in pending) ? pending[isl.id] : isl.on;
-    t.className = 'tile' + (lit ? ' lit' : '') + (isl.targets ? '' : ' dead');
+    t.className = 'tile' + (lit ? ' lit' : '');
   });
 }
 
 function tapIsland(isl) {
-  if (!isl.targets) {
-    toast(isl.name + ' has no luminaires mapped to it yet', true);
-    return;
-  }
-  var grid = document.getElementById('grid');
+  if (!isl.targets) return;   // a display island with no controllable lighting
   var currently = (isl.id in pending) ? pending[isl.id] : isl.on;
   var next = !currently;
 
@@ -648,6 +667,20 @@ setInterval(refresh, 2500);
 """
 
 
+def render_page():
+    """Substitute the configured palette into the stylesheet."""
+    theme = CONFIG["theme"]
+    page = PAGE
+    for key in ("bg", "panel", "line", "text", "muted", "accent",
+                "accent_ink", "accent_soft", "danger", "font", "radius",
+                "tile_bg", "photo_text", "photo_muted"):
+        page = page.replace("__%s__" % key.upper(), str(theme[key]))
+    return page
+
+
+PAGE = render_page()
+
+
 class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
     daemon_threads = True
     allow_reuse_address = True
@@ -655,16 +688,14 @@ class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
 def main():
     os.makedirs(PHOTOS_DIR, exist_ok=True)
-    mapped = sum(1 for i in ISLANDS if i.target_count > 0)
+    switchable = sum(1 for i in ISLANDS if i.target_count > 0)
     with_photo = sum(1 for i in ISLANDS if i.photo_path() is not None)
 
     print("Helvar controller")
     print(f"  router   {ROUTER_IP}:{ROUTER_PORT}")
-    print(f"  islands  {len(ISLANDS)} ({mapped} mapped, {with_photo} with photos)")
+    print(f"  islands  {len(ISLANDS)} "
+          f"({switchable} switchable, {with_photo} with photos)")
     print(f"  photos   {PHOTOS_DIR}")
-    if mapped < len(ISLANDS):
-        print("  note     unmapped islands are shown greyed out - run "
-              "helvar_mapper.py")
     try:
         host_ip = socket.gethostbyname(socket.gethostname())
     except OSError:
