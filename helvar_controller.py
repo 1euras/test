@@ -50,7 +50,7 @@ DEFAULT_CONFIG = {
     "on_level": 100,
     "fade": 100,          # hundredths of a second, so 100 = 1.0s
     "photos_dir": "photos",
-    "title": "Showroom",
+    "title": "Lemora showroom",
 
     "_logo_comment": (
         "Path to a logo image, relative to this file. Shown in the header in "
@@ -58,8 +58,8 @@ DEFAULT_CONFIG = {
         "title is still used for the browser tab and as the image's alt text. "
         "If the file is missing the header falls back to the title."
     ),
-    "logo": "logo.svg",
-    "logo_height": "30px",
+    "logo": "logo.png",
+    "logo_height": "34px",
 
     "_theme_comment": (
         "Brand palette. Every colour the page uses is here - nothing is "
@@ -68,22 +68,22 @@ DEFAULT_CONFIG = {
         "around a lit tile (use a translucent rgba)."
     ),
     "theme": {
-        # Lemora. The accent is the brand turquoise - the brandbook artwork
-        # specifies it as C81 M0 Y39 K0; this is its screen equivalent.
-        # The greys follow the wordmark's neutral scale.
-        "bg": "#16191b",
-        "panel": "#212527",
-        "line": "#343a3d",
-        "text": "#eef0f1",
-        "muted": "#8a9094",
-        "accent": "#00b2ac",
-        "accent_ink": "#04201f",
-        "accent_soft": "rgba(0, 178, 172, .30)",
+        # Lemora. Read straight off the brandbook artwork: the turquoise is
+        # #21beb2 and the wordmark grey is #85878b, with #2c2e35 from the
+        # same neutral scale carrying the panels.
+        "bg": "#1b1d22",
+        "panel": "#2c2e35",
+        "line": "#3f424a",
+        "text": "#f0f1f2",
+        "muted": "#85878b",
+        "accent": "#21beb2",
+        "accent_ink": "#0d2c2a",
+        "accent_soft": "rgba(33, 190, 178, .30)",
         "danger": "#e5372b",
         "font": ('system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'),
         "radius": "8px",
 
-        "tile_bg": "#1c2022",
+        "tile_bg": "#23262c",
         "photo_text": "#ffffff",
         "photo_muted": "rgba(255, 255, 255, .22)",
     },

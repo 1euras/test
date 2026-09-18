@@ -81,46 +81,50 @@ rarely.
 
 ### Branding
 
-**Logo.** Drop the Lemora logo next to the script as `logo.svg` (SVG keeps
-crisp on a high-DPI tablet; PNG works too) and it replaces the title text in
-the header. Adjust `logo_height` if 30px isn't right. The `title` is still
-used for the browser tab and as the image's alt text, and the header falls
-back to it if the file is missing. The panel is dark, so supply a logo that
-reads on a dark background — the grey wordmark and turquoise mark both do.
+**Logo.** `logo.png` is the horizontal Lemora lockup, extracted from the
+brandbook as vector and rendered with a transparent background, so it sits
+correctly on the dark panel. `logo-full.png` is the same lockup with the
+STATYBINĖS MEDŽIAGOS strapline — swap `logo` in the config if you want it,
+and raise `logo_height`, since the strapline needs more height to stay
+legible. The `title` is still used for the browser tab and as the image's alt
+text, and the header falls back to it if the file is missing.
 
 **Colours.** Every colour the page uses lives in the `theme` block of
-`controller_config.json` — nothing is hard-coded in the stylesheet. It ships
-with Lemora's palette:
+`controller_config.json` — nothing is hard-coded in the stylesheet. The values
+are the brandbook's own, read off the artwork:
+
+| | |
+|---|---|
+| `#21beb2` | Lemora turquoise — the `accent` |
+| `#85878b` | wordmark grey — `muted` text |
+| `#2c2e35` | brand neutral — `panel` |
+| `#595b61`, `#b0b1b3` | rest of the brand neutral scale, unused so far |
 
 ```json
 "theme": {
-  "bg":          "#16191b",
-  "panel":       "#212527",
-  "line":        "#343a3d",
-  "text":        "#eef0f1",
-  "muted":       "#8a9094",
-  "accent":      "#00b2ac",
-  "accent_ink":  "#04201f",
-  "accent_soft": "rgba(0, 178, 172, .30)",
+  "bg":          "#1b1d22",
+  "panel":       "#2c2e35",
+  "line":        "#3f424a",
+  "text":        "#f0f1f2",
+  "muted":       "#85878b",
+  "accent":      "#21beb2",
+  "accent_ink":  "#0d2c2a",
+  "accent_soft": "rgba(33, 190, 178, .30)",
   "danger":      "#e5372b",
   "font":        "system-ui, -apple-system, sans-serif",
   "radius":      "8px",
 
-  "tile_bg":     "#1c2022",
+  "tile_bg":     "#23262c",
   "photo_text":  "#ffffff",
   "photo_muted": "rgba(255, 255, 255, .22)"
 }
 ```
 
-The accent is the brand turquoise. The brandbook artwork specifies it as
-**C81 M0 Y39 K0**; `#00b2ac` is its screen equivalent. If the brandbook states
-an official RGB or HEX for screen use, put that in `accent` instead and
-recompute `accent_soft` to match.
-
 A dark panel is deliberate: photographs of lit fixtures read far better
-against it, and a lit island stands out at a glance. Every pair passes WCAG AA
-— body text 15.4:1, muted text 5.5:1, accent 6.7:1, and the text on the accent
-6.5:1.
+against it, and a lit island stands out at a glance. The turquoise carries the
+brand as the accent — the ring and glow on a lit tile, and the active Solo
+button. Contrast clears WCAG AA throughout: body text 14.9:1, the brand grey
+5.5:1, the turquoise 7.3:1, text on the turquoise 6.4:1, tile labels 19.9:1.
 
 `accent` is the lit-island colour: the ring around a lit tile, the glow
 (`accent_soft`, translucent), and the active Solo button. `accent_ink` is the
