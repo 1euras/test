@@ -81,29 +81,46 @@ rarely.
 
 ### Branding
 
-Every colour the page uses lives in the `theme` block of
-`controller_config.json` — nothing is hard-coded in the stylesheet. Change it
-there and restart.
+**Logo.** Drop the Lemora logo next to the script as `logo.svg` (SVG keeps
+crisp on a high-DPI tablet; PNG works too) and it replaces the title text in
+the header. Adjust `logo_height` if 30px isn't right. The `title` is still
+used for the browser tab and as the image's alt text, and the header falls
+back to it if the file is missing. The panel is dark, so supply a logo that
+reads on a dark background — the grey wordmark and turquoise mark both do.
+
+**Colours.** Every colour the page uses lives in the `theme` block of
+`controller_config.json` — nothing is hard-coded in the stylesheet. It ships
+with Lemora's palette:
 
 ```json
 "theme": {
-  "bg":          "#101216",
-  "panel":       "#1a1d23",
-  "line":        "#2c313a",
-  "text":        "#eceef1",
-  "muted":       "#8d95a3",
-  "accent":      "#ffc24d",
-  "accent_ink":  "#1d1503",
-  "accent_soft": "rgba(255, 194, 77, .28)",
-  "danger":      "#ff5d55",
+  "bg":          "#16191b",
+  "panel":       "#212527",
+  "line":        "#343a3d",
+  "text":        "#eef0f1",
+  "muted":       "#8a9094",
+  "accent":      "#00b2ac",
+  "accent_ink":  "#04201f",
+  "accent_soft": "rgba(0, 178, 172, .30)",
+  "danger":      "#e5372b",
   "font":        "system-ui, -apple-system, sans-serif",
-  "radius":      "14px",
+  "radius":      "8px",
 
-  "tile_bg":     "#1d2026",
+  "tile_bg":     "#1c2022",
   "photo_text":  "#ffffff",
   "photo_muted": "rgba(255, 255, 255, .22)"
 }
 ```
+
+The accent is the brand turquoise. The brandbook artwork specifies it as
+**C81 M0 Y39 K0**; `#00b2ac` is its screen equivalent. If the brandbook states
+an official RGB or HEX for screen use, put that in `accent` instead and
+recompute `accent_soft` to match.
+
+A dark panel is deliberate: photographs of lit fixtures read far better
+against it, and a lit island stands out at a glance. Every pair passes WCAG AA
+— body text 15.4:1, muted text 5.5:1, accent 6.7:1, and the text on the accent
+6.5:1.
 
 `accent` is the lit-island colour: the ring around a lit tile, the glow
 (`accent_soft`, translucent), and the active Solo button. `accent_ink` is the

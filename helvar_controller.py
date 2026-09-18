@@ -52,6 +52,15 @@ DEFAULT_CONFIG = {
     "photos_dir": "photos",
     "title": "Showroom",
 
+    "_logo_comment": (
+        "Path to a logo image, relative to this file. Shown in the header in "
+        "place of the title text; SVG keeps crisp on a high-DPI tablet. The "
+        "title is still used for the browser tab and as the image's alt text. "
+        "If the file is missing the header falls back to the title."
+    ),
+    "logo": "logo.svg",
+    "logo_height": "30px",
+
     "_theme_comment": (
         "Brand palette. Every colour the page uses is here - nothing is "
         "hard-coded in the stylesheet. 'accent' is the lit-island colour, "
@@ -59,19 +68,22 @@ DEFAULT_CONFIG = {
         "around a lit tile (use a translucent rgba)."
     ),
     "theme": {
-        "bg": "#101216",
-        "panel": "#1a1d23",
-        "line": "#2c313a",
-        "text": "#eceef1",
-        "muted": "#8d95a3",
-        "accent": "#ffc24d",
-        "accent_ink": "#1d1503",
-        "accent_soft": "rgba(255, 194, 77, .28)",
-        "danger": "#ff5d55",
+        # Lemora. The accent is the brand turquoise - the brandbook artwork
+        # specifies it as C81 M0 Y39 K0; this is its screen equivalent.
+        # The greys follow the wordmark's neutral scale.
+        "bg": "#16191b",
+        "panel": "#212527",
+        "line": "#343a3d",
+        "text": "#eef0f1",
+        "muted": "#8a9094",
+        "accent": "#00b2ac",
+        "accent_ink": "#04201f",
+        "accent_soft": "rgba(0, 178, 172, .30)",
+        "danger": "#e5372b",
         "font": ('system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'),
-        "radius": "14px",
+        "radius": "8px",
 
-        "tile_bg": "#1d2026",
+        "tile_bg": "#1c2022",
         "photo_text": "#ffffff",
         "photo_muted": "rgba(255, 255, 255, .22)",
     },
@@ -130,6 +142,20 @@ CLIENT = HelvarClient(
 )
 
 PHOTOS_DIR = os.path.join(HERE, CONFIG["photos_dir"])
+
+
+def logo_path():
+    """Absolute path of the configured logo, or None if absent or outside."""
+    rel = (CONFIG.get("logo") or "").strip()
+    if not rel:
+        return None
+    candidate = os.path.abspath(os.path.join(HERE, rel))
+    if not candidate.startswith(os.path.abspath(HERE) + os.sep):
+        return None
+    return candidate if os.path.isfile(candidate) else None
+
+
+LOGO_PATH = logo_path()
 
 
 # --------------------------------------------------------------------------
@@ -210,6 +236,7 @@ def build_state_payload():
         solo = STATE["solo"]
     return {
         "title": CONFIG["title"],
+        "has_logo": LOGO_PATH is not None,
         "router_ip": ROUTER_IP,
         "solo": solo,
         "islands": [
@@ -378,6 +405,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self._send_photo(int(path[len("/photo/"):]))
             except ValueError:
                 self._send(404, {"error": "bad id"})
+        elif path == "/logo":
+            if LOGO_PATH is None:
+                self._send(404, {"error": "no logo"})
+                return
+            ctype = mimetypes.guess_type(LOGO_PATH)[0] or "image/svg+xml"
+            try:
+                with open(LOGO_PATH, "rb") as fh:
+                    data = fh.read()
+            except OSError:
+                self._send(404, {"error": "unreadable"})
+                return
+            self._send(200, data, ctype,
+                       {"Cache-Control": "public, max-age=86400"})
         elif path == "/favicon.ico":
             self.send_response(204)
             self.send_header("Content-Length", "0")
@@ -448,6 +488,7 @@ PAGE = r"""<!doctype html>
     background: linear-gradient(var(--bg) 78%, rgba(16,18,22,0));
   }
   h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  #logo { height: __LOGO_HEIGHT__; width: auto; display: block; }
   .spacer { flex: 1 1 auto; }
   .count {
     font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums;
@@ -521,7 +562,8 @@ PAGE = r"""<!doctype html>
 <body>
 
 <header>
-  <h1 id="title">Showroom</h1>
+  <img id="logo" alt="" hidden>
+  <h1 id="title" hidden></h1>
   <span class="count" id="count"></span>
   <span class="spacer"></span>
   <button id="soloBtn">Solo</button>
@@ -563,7 +605,18 @@ function refresh() {
 
 function render() {
   if (!S) return;
-  document.getElementById('title').textContent = S.title;
+  var logo = document.getElementById('logo');
+  var title = document.getElementById('title');
+  if (S.has_logo) {
+    if (!logo.src) logo.src = '/logo';
+    logo.alt = S.title;
+    logo.hidden = false;
+    title.hidden = true;
+  } else {
+    title.textContent = S.title;
+    title.hidden = false;
+    logo.hidden = true;
+  }
   document.title = S.title;
   document.getElementById('count').innerHTML =
     '<b>' + S.on_count + '</b> of ' + S.total + ' lit';
@@ -675,7 +728,7 @@ def render_page():
                 "accent_ink", "accent_soft", "danger", "font", "radius",
                 "tile_bg", "photo_text", "photo_muted"):
         page = page.replace("__%s__" % key.upper(), str(theme[key]))
-    return page
+    return page.replace("__LOGO_HEIGHT__", str(CONFIG["logo_height"]))
 
 
 PAGE = render_page()
@@ -696,6 +749,7 @@ def main():
     print(f"  islands  {len(ISLANDS)} "
           f"({switchable} switchable, {with_photo} with photos)")
     print(f"  photos   {PHOTOS_DIR}")
+    print(f"  logo     {LOGO_PATH or 'none - showing the title text instead'}")
     try:
         host_ip = socket.gethostbyname(socket.gethostname())
     except OSError:
